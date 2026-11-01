@@ -20,9 +20,6 @@ How I built the honeypot, in order, including what went wrong.
 
 **Fix:** Checked the official docs and sized the VM to 2/12 so it stays free. T-Pot lists 8-16 GB RAM, so 12 GB fits.
 
-**Problem:** The console showed an estimated cost of about $8.50/month.
-**Fix:** The estimate ignores the free tier. Oracle's docs confirm 200 GB of block/boot storage is Always Free.
-
 **Problem:** The "Assign a public IPv4 address" toggle was grayed out in the create wizard.
 
 **Fix:** Created the instance, then added an ephemeral public IP on the VNIC afterward.
