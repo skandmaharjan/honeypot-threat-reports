@@ -87,3 +87,46 @@ Quick notes as I find things. These feed the weekly reports.
 - **`payload.sh` = Mirai dropper, barely detected.** Hash c363b0179cbd542865af005d2cc861525e5a5fdb2cd955eeb45741e99690be45: only **2/40 vendors** flag it (Kingsoft: Linux.Backdoor.Mirai.a; Microsoft: Trojan:Script/Wacatac). Sandbox tags: self-delete, persistence, sets-process-name, detect-debug-environment. Mirai turns infected devices into a DDoS botnet. **38 of 40 antivirus engines missed it**, so a low score does not mean safe. ATT&CK: T1105, T1070.004 File Deletion, T1497.
 
 **Defender takeaway (Day 2):** Blocking or rate-limiting the top 1-2 source IPs would remove a huge share of the noise. Phone systems should never expose SIP (5060) to the whole internet, and SMB (445) should never be internet-facing. For SSH: disable password logins (keys only), disable root login, and remove default accounts.
+
+## 2026-11-03: Day 3
+
+**19. Traffic dropped by half: 72K attacks vs 152K on Day 2.** Most of the drop is Sentrypeer (SIP), which fell from 70K to 11K. The VoIP toll-fraud campaign from finding 9 slowed down or stopped. Big campaigns come and go, so one day's top attacker isn't a permanent fixture.
+
+**20. Honeytrap became the #1 honeypot (30K).** Honeytrap listens on every port the other honeypots don't use. With the SIP campaign gone, the biggest source of traffic is broad port scanning: bots checking every port to see what's open.
+
+**21. An SMB burst: 2,667 hits on port 445 in one hour.** Around 11 PM on Nov 2, port 445 (Windows file sharing, the port WannaCry spread through) jumped from a few hundred hits an hour to 2,667. Unique source IPs stayed flat at about 400 during the spike, so a small number of IPs caused it, not a wave of new attackers.
+- ATT&CK: T1190 Exploit Public-Facing Application (EternalBlue-style), T1110 Brute Force
+
+**22. RDP brute force from two hosting-provider IPs.** RDPHoneypot (port 3389, Windows Remote Desktop) logged about 8K events:
+
+| Source IP | ASN | Hits |
+|---|---|---|
+| 213.136.90.193 | AS51167 Contabo GmbH | 4,055 |
+| 194.180.48.161 | AS201814 MEVSPACE sp. z o.o. | 1,692 |
+| 152.53.82.10 | AS214996 netcup GmbH | 611 |
+
+- The top two IPs made about 70% of all RDP traffic. All three are cheap VPS hosts, which attackers commonly rent to run scanners.
+- About a quarter of events were `rdphoneypot.login`, so these bots were trying credentials, not just checking whether the port was open. ATT&CK: T1110 Brute Force, T1021.001 Remote Desktop Protocol.
+- RDP attacks climbed from about 100 to 550 an hour during the afternoon while unique source IPs stayed flat, so the same few IPs were attacking harder.
+
+**23. Two kinds of traffic.** Concentrated campaigns look like a huge spike in attacks with a flat unique-IP line (the 11 PM SMB burst: ~5,000 attacks/hour from ~400 IPs). Background scanning looks like many IPs each doing a little (1 PM: 2,195 attacks from 873 unique IPs). Comparing those two lines is a quick way to tell a targeted burst from internet noise.
+
+**Defender takeaway (Day 3):** RDP and SMB should never be exposed to the internet. Put RDP behind a VPN or gateway with MFA and account lockout, and block 445 at the edge. Blocking or rate-limiting a handful of VPS IPs would have removed most of today's RDP traffic.
+
+## 2026-11-04: Day 4
+
+**24. A VNC campaign doubled traffic back to 151K.** Heralding (a honeypot that captures login attempts on many protocols) jumped to #1 with 49K, and port 5900 (VNC, remote desktop for Linux/Mac/Windows) became the top port. It ran as a flat block of about 1,500 hits an hour from roughly 3 AM until late evening, which looks like one long-running scanner rather than random noise.
+- Suricata confirms it: "GPL INFO VNC server response" (98,675), "ET EXPLOIT VNC Server Not Requiring Authentication" (49,470) and "ET INFO VNC Authentication Failure" (49,324).
+- Top CVE was **CVE-2006-2369** (49,474), a 20-year-old RealVNC authentication bypass. Bots are still checking for it.
+- The most common password was **blank**, consistent with bots looking for VNC servers with no password set.
+- ATT&CK: T1021.005 Remote Services: VNC, T1110 Brute Force, T1190 Exploit Public-Facing Application
+
+**25. The 109.160.32.x range is back.** On Day 2 the Cowrie brute-force trio was 109.160.32.108/.114/.147 (AS198364 Banatsync). Today three *different* IPs from the same range are in the top 10: 109.160.32.31 (5,658), .168 (4,628) and .112 (2,412), and Banatsync is the #2 ASN with 30,978. Same network, new IPs: rotating addresses inside one provider range is a common way to dodge single-IP blocks, so blocking the whole range would work better than blocking individual IPs.
+
+**26. A /24 cluster: 77.239.124.x.** Five IPs from the same subnet are in the top 10 (.155 with 6,004, then .43, .37, .39 and .64 with about 2,510-2,516 each). Four of them have almost identical counts, which suggests one tool splitting its work evenly across several addresses.
+
+**27. Contabo is #1 by network (49,170) but has no IP in the top 10.** The traffic is spread across many Contabo servers, each sending under 2,400 hits. Contabo was also the top RDP source on Day 3 (213.136.90.193). Per-IP top-10 lists can hide this kind of distributed activity, so it's worth checking the ASN table too.
+
+**28. Old Windows exploits still in use.** Suricata flagged "ET EXPLOIT DoublePulsar Backdoor installation communication" 7,918 times. DoublePulsar is the NSA-developed SMB backdoor leaked in 2017 and used alongside EternalBlue in WannaCry. Attackers are still trying it against port 445 nine years later. ATT&CK: T1210 Exploitation of Remote Services.
+
+**Defender takeaway (Day 4):** Never expose VNC to the internet, and never run it without a strong password. Block by network range (ASN or /24), not just single IPs, because attackers rotate addresses within the same provider.
