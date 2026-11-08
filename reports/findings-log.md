@@ -35,6 +35,8 @@ Quick notes as I find things. These feed the weekly reports.
 
 **8. Volume exploded overnight.** About **152,000 attack attempts in the first 24 hours**. By honeypot: Sentrypeer (VoIP) 70K, Cowrie (SSH/Telnet) 48K, Honeytrap 21K, Dionaea 10K.
 
+![Day 2 T-Pot dashboard: 152K attacks in 24 hours](images/1-day2-dashboard-152k.png)
+
 **9. One host made ~40% of all traffic, and it was hunting phone systems.** Sentrypeer (fake SIP/VoIP server, port 5060) was the #1 target. Port 5060 traffic formed a flat block of about 8,000 hits/hour overnight, which looked like a single campaign. Filtering to Sentrypeer confirmed it:
 - **172.110.223.9** sent **63,830** hits, about 91% of all VoIP traffic and roughly 40% of everything the honeypot saw that day
 - Its neighbor **172.110.223.49** sent another 1,560 (same operator, same block)
@@ -42,6 +44,8 @@ Quick notes as I find things. These feed the weekly reports.
 - AbuseIPDB: **100% abuse confidence (Critical)**, 480 reports from 105 reporters, still active
 - Likely goal: find exposed phone systems to hijack for **toll fraud** (placing expensive calls on someone else's bill)
 - ATT&CK: T1595 Active Scanning, T1110 Brute Force
+
+![Sentrypeer top source IPs: 172.110.223.9 with 63,830 hits](images/2-day2-sentrypeer-top-ip.png)
 
 **10. Geolocation disagreed.** The Kibana country chart spiked for the Philippines in the same window, so I guessed it was the same campaign. AbuseIPDB (IPinfo data) places 172.110.223.9 in **New York, US**. IP geolocation databases often disagree, especially for hosting IPs, so country data is a weak signal and shouldn't be trusted on its own.
 
@@ -78,6 +82,8 @@ Quick notes as I find things. These feed the weekly reports.
 
 - Interpretation: the script sizes up the machine's CPU and RAM (is it worth mining crypto on?), then tries to plant a permanent SSH backdoor. The same command pattern is widely reported by other honeypot operators.
 
+![Cowrie: brute-force trio, recon commands and downloaded files](images/3-day2-cowrie-bruteforce-commands-downloads.png)
+
 **17. Same tool, different IPs (HASSH).** Cowrie saw 277 unique source IPs but only 27 unique HASSH fingerprints. HASSH fingerprints the attacker's SSH *client software*. The trio 109.160.32.108/.114/.147 and 161.132.48.211 share one HASSH, which supports the idea that it's the same tool or operator. Client banners include `SSH-2.0-Go`, `libssh`, `PuTTY`, `Nmap` and `ZGrab`.
 
 **18. Malware downloads.** Attackers fetched `payload.sh` from 165.245.199.76 (4 times) and dropped files named `.16`, `.b0s` and `sshd`. Hidden dot-names and a fake `sshd` (pretending to be the real SSH server) are classic tricks to blend in.
@@ -85,6 +91,8 @@ Quick notes as I find things. These feed the weekly reports.
 - Cowrie saved 8 files, named by SHA-256 hash. I looked them up on VirusTotal (hash search only, never downloaded or run). One hash (01ba4719...) is just a file containing a blank line, so that download failed.
 - **`sshd` = crypto miner.** Hash 94f2e4d8d4436874785cd14e6e6d403507b8750852f7f2040352069a75da4c00: **47/64 vendors** flag it, label `miner.genericrxss/multiverze`, a 28.9 MB 64-bit Linux ELF. A miner disguised as the SSH server. This **confirms finding 16**: the recon script checked CPU and RAM because the goal was crypto mining. ATT&CK: T1496 Resource Hijacking, T1036.005 Masquerading.
 - **`payload.sh` = Mirai dropper, barely detected.** Hash c363b0179cbd542865af005d2cc861525e5a5fdb2cd955eeb45741e99690be45: only **2/40 vendors** flag it (Kingsoft: Linux.Backdoor.Mirai.a; Microsoft: Trojan:Script/Wacatac). Sandbox tags: self-delete, persistence, sets-process-name, detect-debug-environment. Mirai turns infected devices into a DDoS botnet. **38 of 40 antivirus engines missed it**, so a low score does not mean safe. ATT&CK: T1105, T1070.004 File Deletion, T1497.
+
+![VirusTotal: payload.sh flagged as Mirai by only 2/40 vendors](images/4-day2-virustotal-payload-sh-mirai.png)
 
 **Defender takeaway (Day 2):** Blocking or rate-limiting the top 1-2 source IPs would remove a huge share of the noise. Phone systems should never expose SIP (5060) to the whole internet, and SMB (445) should never be internet-facing. For SSH: disable password logins (keys only), disable root login, and remove default accounts.
 
@@ -96,6 +104,8 @@ Quick notes as I find things. These feed the weekly reports.
 
 **21. An SMB burst: 2,667 hits on port 445 in one hour.** Around 11 PM on Nov 2, port 445 (Windows file sharing, the port WannaCry spread through) jumped from a few hundred hits an hour to 2,667. Unique source IPs stayed flat at about 400 during the spike, so a small number of IPs caused it, not a wave of new attackers.
 - ATT&CK: T1190 Exploit Public-Facing Application (EternalBlue-style), T1110 Brute Force
+
+![Port 445 spike: 2,667 hits at 11 PM](images/5-day3-port445-spike.png)
 
 **22. RDP brute force from two hosting-provider IPs.** RDPHoneypot (port 3389, Windows Remote Desktop) logged about 8K events:
 
@@ -121,6 +131,8 @@ Quick notes as I find things. These feed the weekly reports.
 - The most common password was **blank**, consistent with bots looking for VNC servers with no password set.
 - ATT&CK: T1021.005 Remote Services: VNC, T1110 Brute Force, T1190 Exploit Public-Facing Application
 
+![Suricata top CVEs and alert signatures during the VNC campaign](images/6-day4-suricata-vnc-cve.png)
+
 **25. The 109.160.32.x range is back.** On Day 2 the Cowrie brute-force trio was 109.160.32.108/.114/.147 (AS198364 Banatsync). Today three *different* IPs from the same range are in the top 10: 109.160.32.31 (5,658), .168 (4,628) and .112 (2,412), and Banatsync is the #2 ASN with 30,978. Same network, new IPs: rotating addresses inside one provider range is a common way to dodge single-IP blocks, so blocking the whole range would work better than blocking individual IPs.
 
 **26. A /24 cluster: 77.239.124.x.** Five IPs from the same subnet are in the top 10 (.155 with 6,004, then .43, .37, .39 and .64 with about 2,510-2,516 each). Four of them have almost identical counts, which suggests one tool splitting its work evenly across several addresses.
@@ -130,3 +142,55 @@ Quick notes as I find things. These feed the weekly reports.
 **28. Old Windows exploits still in use.** Suricata flagged "ET EXPLOIT DoublePulsar Backdoor installation communication" 7,918 times. DoublePulsar is the NSA-developed SMB backdoor leaked in 2017 and used alongside EternalBlue in WannaCry. Attackers are still trying it against port 445 nine years later. ATT&CK: T1210 Exploitation of Remote Services.
 
 **Defender takeaway (Day 4):** Never expose VNC to the internet, and never run it without a strong password. Block by network range (ASN or /24), not just single IPs, because attackers rotate addresses within the same provider.
+
+## 2026-11-05: Day 5
+
+**29. The VNC campaign is over.** Total traffic fell back to 74K. Heralding dropped from 49K to 3K, and CVE-2006-2369 (the RealVNC bypass) fell from 49,474 alerts to 3,456. The campaign from finding 24 lasted about one day, so big campaigns here tend to burn hot for a day and then move on.
+
+**30. Repeat offenders: the same attackers keep coming back.**
+- **109.160.32.x (AS198364 Banatsync)** is in the top 10 for the third time (Days 2, 4 and 5). Two IPs repeat from Day 4 (.168 with 5,574 and .31 with 4,625) and one is new (.157 with 4,600). Banatsync is the #1 network again with 14,844.
+- **102.212.40.74 (AS329244 Connect, Surf and Smile)** is back: 8,372 on Day 4, 4,631 on Day 5.
+- Bulgaria is now the #1 country, and almost all of its traffic is port 22 (SSH), which fits the 109.160.32.x SSH brute force. That's a match, not proof, since geolocation for hosting IPs is unreliable (finding 10).
+- Takeaway: while campaigns like SIP and VNC come and go, a few operators show up day after day. These are the best candidates for a permanent blocklist.
+
+**31. Steady background noise from Go-based scanners.** Suricata's "ET USER_AGENTS Go HTTP Client User-Agent" fired about 15,000 times on both Day 4 and Day 5. Many scanning tools are written in Go, so this is a constant baseline of automated web scanning, regardless of which campaign is active.
+
+**Defender takeaway (Day 5):** Separate one-day campaigns from persistent attackers. Spikes need rate limiting, while repeat sources (like 109.160.32.0/24) are worth blocking permanently.
+
+## 2026-11-06: Day 6
+
+**32. An RDP campaign: one IP sent 39% of all traffic.** Total traffic jumped back to 152K, and RDPHoneypot went from 9K to **79K**. Most of it came from one address: **109.205.211.4 (AS201814 MEVSPACE) with 59,431 hits**. MEVSPACE was also the #2 RDP source on Day 3 (194.180.48.161), so this provider keeps coming back for RDP.
+- Port 3389 ran as a flat block of about 4,000 hits an hour from roughly 7 AM to 3 PM.
+- Suricata: "ET HUNTING RDP Authentication Bypass Attempt" (25,024) and "ET REMOTE_ACCESS MS Remote Desktop Administrator Login Request" (24,586).
+- The top username was `Administrator` and the top password was blank, so the bot was trying the default Windows admin account.
+- ATT&CK: T1110 Brute Force, T1021.001 Remote Desktop Protocol
+
+**33. More RDP from hosting providers.** The next three source IPs line up with the next three networks: 185.8.104.174 (22,735, AS16125 Cherry Servers), 194.50.16.198 (15,201, AS49870 Alsycon) and 37.72.140.50 (12,001, AS211663 GALEON). The top countries (Azerbaijan, Lithuania, Russia) are almost entirely port 3389. Nearly every major source today was a rented server, not a home connection.
+
+**34. Web scanners hitting the Telnet port.** The username and password lists include HTTP header lines like `GET / HTTP/1.1`, `User-Agent: Go-http-client/1.1` and `Connection: close`. Web scanners sent HTTP requests to port 23 (Telnet), and the honeypot recorded each header line as a login attempt. Scanners often spray requests at every port without checking which service is actually running.
+
+**35. New usernames and tools.** `llm` joined `claude` and `openclaw` (finding 14) as AI-related usernames. `ubnt` (the Ubiquiti router default) and `proxyuser` also appeared. A new Suricata alert, "python-requests User-Agent" (15,381), showed Python-based scanners, and the Go HTTP client alert hit about 15,000 for the third day in a row (finding 31).
+
+**Defender takeaway (Day 6):** Rename or disable the built-in `Administrator` account, require Network Level Authentication and account lockout for RDP, and never expose 3389 to the internet.
+
+## 2026-11-07: Day 7
+
+**36. Busiest day yet: 243K, driven by RDP.** RDPHoneypot logged 123K and port 3389 sat at 4,000-7,000 hits an hour for most of the day. Suricata's top CVE was CVE-2001-0540 (82,941), an old Windows Terminal Server/RDP bug, and "RDP Authentication Bypass Attempt" fired 38,724 times.
+
+**37. Day 6's attackers came back stronger.**
+
+| Source IP | Network | Day 6 | Day 7 |
+|---|---|---|---|
+| 194.50.16.198 | AS49870 Alsycon | 15,201 | 65,598 |
+| 37.72.140.50 | AS211663 GALEON | 12,001 | 24,004 |
+| 109.205.211.x | AS201814 MEVSPACE | .4: 59,431 | .6: 2,586 (network total 45,746) |
+
+- 37.72.140.50 sent *exactly* double its Day 6 count (12,001 → 24,004), which looks like a bot running at a fixed rate that started partway through Day 6.
+- MEVSPACE moved to a neighboring IP (.4 → .6), the same rotation pattern as 109.160.32.x (finding 25).
+- New big source: **185.136.15.36 (AS210328 AO ALMAZ) with 47,540.**
+
+**38. Two more returning ranges.** 94.26.88.29 was on Day 5 (2,223) and is back with 19,637, alongside its neighbor 94.26.88.34 (23,394). The 77.239.124.x subnet appeared again (.31 and .77, about 2,510 each), its third appearance after Days 2 and 4, with most IPs sending ~2,510 each time.
+
+**39. Bots are guessing DevOps and infrastructure accounts.** New usernames include `kafka`, `elasticsearch`, `docker`, `ansible`, `zabbix` and `prod`, which are service accounts that infrastructure tools create. The "python-requests" User-Agent alert jumped from 15,381 to 65,414, and DoublePulsar attempts doubled to 16,300.
+
+**Defender takeaway (Day 7):** The same few hosting networks drove most of the week's RDP traffic. ASN-level blocking or geo/ASN rate limits on 3389 would have stopped the bulk of it, and service accounts like `docker` or `elasticsearch` should never allow password logins.
