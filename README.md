@@ -1,6 +1,8 @@
 # Honeypot Threat Reports
 
-A T-Pot honeypot running on Oracle Cloud that collects real-world attacks from the internet. I analyze the traffic, enrich attacker IPs with threat intelligence, map behavior to MITRE ATT&CK, and publish what I find here.
+A T-Pot honeypot running on Oracle Cloud (Always Free tier) that collects real-world attacks from the internet. I analyze the traffic, enrich attacker IPs with threat intelligence, map behavior to MITRE ATT&CK, and publish what I find here.
+
+**Latest:** [Week 1 Threat Report (Nov 1-7)](reports/week-01.md)
 
 ## What I built
 - **Sensor:** T-Pot 24.04.1 (Hive install) with 20+ honeypots, including Cowrie (SSH/Telnet), Dionaea (SMB, databases, malware capture), Conpot (industrial control systems), and Suricata (IDS)
