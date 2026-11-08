@@ -35,7 +35,7 @@ Quick notes as I find things. These feed the weekly reports.
 
 **8. Volume exploded overnight.** About **152,000 attack attempts in the first 24 hours**. By honeypot: Sentrypeer (VoIP) 70K, Cowrie (SSH/Telnet) 48K, Honeytrap 21K, Dionaea 10K.
 
-![Day 2 T-Pot dashboard: 152K attacks in 24 hours](images/1-day2-dashboard-152k.png)
+![Day 2 T-Pot dashboard: 152K attacks in 24 hours](1-day2-dashboard-152k.png)
 
 **9. One host made ~40% of all traffic, and it was hunting phone systems.** Sentrypeer (fake SIP/VoIP server, port 5060) was the #1 target. Port 5060 traffic formed a flat block of about 8,000 hits/hour overnight, which looked like a single campaign. Filtering to Sentrypeer confirmed it:
 - **172.110.223.9** sent **63,830** hits, about 91% of all VoIP traffic and roughly 40% of everything the honeypot saw that day
@@ -45,7 +45,7 @@ Quick notes as I find things. These feed the weekly reports.
 - Likely goal: find exposed phone systems to hijack for **toll fraud** (placing expensive calls on someone else's bill)
 - ATT&CK: T1595 Active Scanning, T1110 Brute Force
 
-![Sentrypeer top source IPs: 172.110.223.9 with 63,830 hits](images/2-day2-sentrypeer-top-ip.png)
+![Sentrypeer top source IPs: 172.110.223.9 with 63,830 hits](2-day2-sentrypeer-top-ip.png)
 
 **10. Geolocation disagreed.** The Kibana country chart spiked for the Philippines in the same window, so I guessed it was the same campaign. AbuseIPDB (IPinfo data) places 172.110.223.9 in **New York, US**. IP geolocation databases often disagree, especially for hosting IPs, so country data is a weak signal and shouldn't be trusted on its own.
 
@@ -82,7 +82,7 @@ Quick notes as I find things. These feed the weekly reports.
 
 - Interpretation: the script sizes up the machine's CPU and RAM (is it worth mining crypto on?), then tries to plant a permanent SSH backdoor. The same command pattern is widely reported by other honeypot operators.
 
-![Cowrie: brute-force trio, recon commands and downloaded files](images/3-day2-cowrie-bruteforce-commands-downloads.png)
+![Cowrie: brute-force trio, recon commands and downloaded files](3-day2-cowrie-bruteforce-commands-downloads.png)
 
 **17. Same tool, different IPs (HASSH).** Cowrie saw 277 unique source IPs but only 27 unique HASSH fingerprints. HASSH fingerprints the attacker's SSH *client software*. The trio 109.160.32.108/.114/.147 and 161.132.48.211 share one HASSH, which supports the idea that it's the same tool or operator. Client banners include `SSH-2.0-Go`, `libssh`, `PuTTY`, `Nmap` and `ZGrab`.
 
@@ -92,7 +92,7 @@ Quick notes as I find things. These feed the weekly reports.
 - **`sshd` = crypto miner.** Hash 94f2e4d8d4436874785cd14e6e6d403507b8750852f7f2040352069a75da4c00: **47/64 vendors** flag it, label `miner.genericrxss/multiverze`, a 28.9 MB 64-bit Linux ELF. A miner disguised as the SSH server. This **confirms finding 16**: the recon script checked CPU and RAM because the goal was crypto mining. ATT&CK: T1496 Resource Hijacking, T1036.005 Masquerading.
 - **`payload.sh` = Mirai dropper, barely detected.** Hash c363b0179cbd542865af005d2cc861525e5a5fdb2cd955eeb45741e99690be45: only **2/40 vendors** flag it (Kingsoft: Linux.Backdoor.Mirai.a; Microsoft: Trojan:Script/Wacatac). Sandbox tags: self-delete, persistence, sets-process-name, detect-debug-environment. Mirai turns infected devices into a DDoS botnet. **38 of 40 antivirus engines missed it**, so a low score does not mean safe. ATT&CK: T1105, T1070.004 File Deletion, T1497.
 
-![VirusTotal: payload.sh flagged as Mirai by only 2/40 vendors](images/4-day2-virustotal-payload-sh-mirai.png)
+![VirusTotal: payload.sh flagged as Mirai by only 2/40 vendors](4-day2-virustotal-payload-sh-mirai.png)
 
 **Defender takeaway (Day 2):** Blocking or rate-limiting the top 1-2 source IPs would remove a huge share of the noise. Phone systems should never expose SIP (5060) to the whole internet, and SMB (445) should never be internet-facing. For SSH: disable password logins (keys only), disable root login, and remove default accounts.
 
@@ -105,7 +105,7 @@ Quick notes as I find things. These feed the weekly reports.
 **21. An SMB burst: 2,667 hits on port 445 in one hour.** Around 11 PM on Nov 2, port 445 (Windows file sharing, the port WannaCry spread through) jumped from a few hundred hits an hour to 2,667. Unique source IPs stayed flat at about 400 during the spike, so a small number of IPs caused it, not a wave of new attackers.
 - ATT&CK: T1190 Exploit Public-Facing Application (EternalBlue-style), T1110 Brute Force
 
-![Port 445 spike: 2,667 hits at 11 PM](images/5-day3-port445-spike.png)
+![Port 445 spike: 2,667 hits at 11 PM](5-day3-port445-spike.png)
 
 **22. RDP brute force from two hosting-provider IPs.** RDPHoneypot (port 3389, Windows Remote Desktop) logged about 8K events:
 
@@ -131,7 +131,7 @@ Quick notes as I find things. These feed the weekly reports.
 - The most common password was **blank**, consistent with bots looking for VNC servers with no password set.
 - ATT&CK: T1021.005 Remote Services: VNC, T1110 Brute Force, T1190 Exploit Public-Facing Application
 
-![Suricata top CVEs and alert signatures during the VNC campaign](images/6-day4-suricata-vnc-cve.png)
+![Suricata top CVEs and alert signatures during the VNC campaign](6-day4-suricata-vnc-cve.png)
 
 **25. The 109.160.32.x range is back.** On Day 2 the Cowrie brute-force trio was 109.160.32.108/.114/.147 (AS198364 Banatsync). Today three *different* IPs from the same range are in the top 10: 109.160.32.31 (5,658), .168 (4,628) and .112 (2,412), and Banatsync is the #2 ASN with 30,978. Same network, new IPs: rotating addresses inside one provider range is a common way to dodge single-IP blocks, so blocking the whole range would work better than blocking individual IPs.
 
